@@ -6,8 +6,9 @@
  * @flow strict-local
  */
 
-import React from 'react';
-import type {Node} from 'react';
+import React, { useState, useEffect, Node } from 'react';
+import auth from '@react-native-firebase/auth';
+import { appleAuth, AppleButton } from '@invertase/react-native-apple-authentication';
 import {
   SafeAreaView,
   ScrollView,
@@ -48,16 +49,57 @@ const Section = ({children, title}): Node => {
   );
 };
 
+async function onAppleButtonPress() {
+  const appleAuthRequestResponse = await appleAuth.performRequest({
+    requestedOperation: appleAuth.Operation.LOGIN,
+    requestedScopes: [appleAuth.Scope.EMAIL, appleAuth.Scope.FULL_NAME],
+  });
+  // /!\ This method must be tested on a real device. On the iOS simulator it always throws an error.
+  const credentialState = await appleAuth.getCredentialStateForUser(appleAuthRequestResponse.user);
+
+  // use credentialState response to ensure the user is authenticated
+  if (credentialState === appleAuth.State.AUTHORIZED) {
+    // user is authenticated
+  }
+}
+
 const App: () => Node = () => {
   const isDarkMode = useColorScheme() === 'dark';
 
   const backgroundStyle = {
     backgroundColor: isDarkMode ? Colors.darker : Colors.lighter, height: 800
   };
-
   const textStyle = {
    backgroundColor: 'purple', padding: '10%',
   };
+
+  function onAuthStateChanged(user) {
+    setUser(user);
+    if (initializing) setInitializing(false);
+  }
+
+  useEffect(() => {
+    appleAuth.onCredentialRevoked(async () => {
+      console.warn('If this function executes, User Credentials have been Revoked');
+    });
+
+    const subscriber = auth().onAuthStateChanged(onAuthStateChanged);
+    return subscriber; // unsubscribe on unmount
+  }, []);
+
+  //if (initializing) return "last logged in html";
+
+  if (!user) {
+    return (
+      <View>
+        <Text>Login</Text>
+        <View>
+          <AppleButton onPress={() => onAppleButtonPress()} />
+        </View>
+      </View>
+
+    );
+  }
 
   return (
     <SafeAreaView style={backgroundStyle}>
